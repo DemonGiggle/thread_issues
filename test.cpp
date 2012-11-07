@@ -4,10 +4,11 @@
 #include <thread>
 #include <vector>
 #include <algorithm>
+#include <cassert>
 
 // Well, do not set the thread count exceeds your physical core number
-const int g_thread_count = 4;
-const int g_hammer_count = 4000;
+const int g_thread_count = 2;
+const int g_hammer_count = 1000000;
 
 /**
  * I hope everyone come inside, and everyone know
@@ -63,16 +64,9 @@ void thread_func()
     while (hammer_count--)
     {
         int t_inside = wait_for_all_entering_ep();
-
-        if (t_inside != g_thread_count)
-        {
-            std::cout << "Error detected! : " << t_inside << std::endl;
-        }
-        else
-        {
-            if (hammer_count % 100 == 0)
-                std::cout << "Passed: " << hammer_count << std::endl;
-        }
+        assert(t_inside == g_thread_count && "Well, you code could not suffer hammering!");
+        if (hammer_count % 10000 == 0)
+            std::cout << "Passed: " << hammer_count << std::endl;
     }
 }
 
