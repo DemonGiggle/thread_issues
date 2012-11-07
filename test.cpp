@@ -2,6 +2,11 @@
 #include <atomic>
 #include <mutex>
 #include <thread>
+#include <vector>
+#include <algorithm>
+
+const int g_thread_count = 4;
+const int g_hammer_count = 4000;
 
 /**
  * I hope everyone come inside, and everyone know
@@ -12,60 +17,85 @@ int wait_for_all_entering_ep()
     static std::atomic<bool> wait_finish;
     static std::atomic<int> thread_inside_count;
     static std::atomic<int> saved_thread_inside_count;
+    static std::atomic<bool> closed_door;
 
-    static std::mutex mtx;
+    static std::atomic<bool> first_thread;
 
-    wait_finish = false;
+    static __thread int ep_count;
+
+    ep_count++;
+
+    while (closed_door);
+
     thread_inside_count++;
-    if (mtx.try_lock())
-    {  
-        while (thread_inside_count != 2)
+    bool first_thread_expect = false;
+    if (std::atomic_compare_exchange_strong(&first_thread, &first_thread_expect, true))
+    { 
+        while (thread_inside_count != g_thread_count)
         {  
             // Well, furiosly infinit looping until all the threads runnin in the 
             // kernel are trapped here
         }
-        saved_thread_inside_count = thread_inside_count.load();
+        closed_door = true;
+        saved_thread_inside_count = std::max<int>(saved_thread_inside_count.load(), thread_inside_count.load());
+
+        //saved_thread_inside_count = thread_inside_count.load();
         wait_finish = true;
-        mtx.unlock();
     }
     else
     {
         while (wait_finish == false);
     }
 
-    thread_inside_count--;
-    return saved_thread_inside_count.load();
+    int saved = saved_thread_inside_count;
+    int prev_count = thread_inside_count.fetch_sub(1);
+
+    if (prev_count == 1)
+    {
+        // the last one should open the door and initialize
+        // value for the next time
+        first_thread = false;
+        wait_finish = false;
+        saved_thread_inside_count = 0;
+        closed_door = false;
+    }
+
+    return saved;
 }
 
 void thread_func()
 {
-    std::cout << "thread_function: " << std::this_thread::get_id() << std::endl;
-
-    while (true)
+    int hammer_count = g_hammer_count;
+    while (hammer_count--)
     {
         int t_inside = wait_for_all_entering_ep();
 
-        if (t_inside != 2)
+        if (t_inside != g_thread_count)
         {
             std::cout << "Error detected! : " << t_inside << std::endl;
+        }
+        else
+        {
+            if (hammer_count % 1000 == 0)
+                std::cout << "Passed: " << hammer_count << std::endl;
         }
     }
 }
 
 int main()
 {
-    try 
-    {
-        std::thread t1(thread_func);
-        std::thread t2(thread_func);
+    std::vector<std::thread*> threads;
 
-        t1.join();
-        t2.join();
-    }
-    catch (std::runtime_error& e)
+    for (int i = 0; i < g_thread_count; i++)
     {
-        std::cout << "Error: " << e.what() << std::endl;
+        threads.push_back(new std::thread(thread_func));
     }
 
+    std::for_each(threads.begin(), threads.end(), [](std::thread* t) {
+            if (t->joinable())
+                t->join();
+    });
+
+    std::cout << "Finished" << std::endl;
     return 0;
 }
