@@ -2,6 +2,13 @@
 #include <atomic>
 #include <mutex>
 #include <thread>
+#include <vector>
+#include <algorithm>
+#include <cassert>
+
+// Well, do not set the thread count exceeds your physical core number
+const int g_thread_count = 2;
+const int g_hammer_count = 1000000;
 
 /**
  * I hope everyone come inside, and everyone know
@@ -19,7 +26,7 @@ int wait_for_all_entering_ep()
     thread_inside_count++;
     if (mtx.try_lock())
     {  
-        while (thread_inside_count != 2)
+        while (thread_inside_count != g_thread_count)
         {  
             // Well, furiosly infinit looping until all the threads runnin in the 
             // kernel are trapped here
@@ -39,33 +46,30 @@ int wait_for_all_entering_ep()
 
 void thread_func()
 {
-    std::cout << "thread_function: " << std::this_thread::get_id() << std::endl;
-
-    while (true)
+    int hammer_count = g_hammer_count;
+    while (hammer_count--)
     {
         int t_inside = wait_for_all_entering_ep();
-
-        if (t_inside != 2)
-        {
-            std::cout << "Error detected! : " << t_inside << std::endl;
-        }
+        assert(t_inside == g_thread_count && "Well, you code could not suffer hammering!");
+        if (hammer_count % 10000 == 0)
+            std::cout << "Passed: " << hammer_count << std::endl;
     }
 }
 
 int main()
 {
-    try 
-    {
-        std::thread t1(thread_func);
-        std::thread t2(thread_func);
+    std::vector<std::thread*> threads;
 
-        t1.join();
-        t2.join();
-    }
-    catch (std::runtime_error& e)
+    for (int i = 0; i < g_thread_count; i++)
     {
-        std::cout << "Error: " << e.what() << std::endl;
+        threads.push_back(new std::thread(thread_func));
     }
 
+    std::for_each(threads.begin(), threads.end(), [](std::thread* t) {
+            if (t->joinable())
+                t->join();
+    });
+
+    std::cout << "Finished" << std::endl;
     return 0;
 }
