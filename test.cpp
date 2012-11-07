@@ -6,8 +6,10 @@
 #include <algorithm>
 #include <cassert>
 
+#include "other.h"
+
 // Well, do not set the thread count exceeds your physical core number
-const int g_thread_count = 2;
+const int g_thread_count = MAX_THREAD_COUNT;
 const int g_hammer_count = 1000000;
 
 /**
@@ -26,7 +28,7 @@ int wait_for_all_entering_ep()
     thread_inside_count++;
     if (mtx.try_lock())
     {  
-        while (thread_inside_count != g_thread_count)
+        while (thread_inside_count != get_expected_thread_count())
         {  
             // Well, furiosly infinit looping until all the threads runnin in the 
             // kernel are trapped here
