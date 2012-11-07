@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 
+// Well, do not set the thread count exceeds your physical core number
 const int g_thread_count = 4;
 const int g_hammer_count = 4000;
 
@@ -18,12 +19,7 @@ int wait_for_all_entering_ep()
     static std::atomic<int> thread_inside_count;
     static std::atomic<int> saved_thread_inside_count;
     static std::atomic<bool> closed_door;
-
     static std::atomic<bool> first_thread;
-
-    static __thread int ep_count;
-
-    ep_count++;
 
     while (closed_door);
 
@@ -38,8 +34,6 @@ int wait_for_all_entering_ep()
         }
         closed_door = true;
         saved_thread_inside_count = std::max<int>(saved_thread_inside_count.load(), thread_inside_count.load());
-
-        //saved_thread_inside_count = thread_inside_count.load();
         wait_finish = true;
     }
     else
@@ -76,7 +70,7 @@ void thread_func()
         }
         else
         {
-            if (hammer_count % 1000 == 0)
+            if (hammer_count % 100 == 0)
                 std::cout << "Passed: " << hammer_count << std::endl;
         }
     }

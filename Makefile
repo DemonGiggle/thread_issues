@@ -1,2 +1,2 @@
 all: test.cpp
-	g++ -std=c++0x -g -pthread test.cpp
+	g++ -std=c++0x -O3 -pthread test.cpp
