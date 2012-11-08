@@ -17,33 +17,26 @@ const int g_hammer_count = 1000000;
  * how many had been here
  */
 int wait_for_all_entering_ep()
-{  
-    static std::atomic<bool> wait_finish;
-    static std::atomic<int> thread_inside_count;
-    static std::atomic<int> saved_thread_inside_count;
+{
+    static std::atomic<int> num_room_1(0);
+    static std::atomic<int> num_room_2(0);
+    int num_thread = 0;
 
-    static std::mutex mtx;
+    ++num_room_1;
 
-    wait_finish = false;
-    thread_inside_count++;
-    if (mtx.try_lock())
-    {  
-        while (thread_inside_count != get_expected_thread_count())
-        {  
-            // Well, furiosly infinit looping until all the threads runnin in the 
-            // kernel are trapped here
-        }
-        saved_thread_inside_count = thread_inside_count.load();
-        wait_finish = true;
-        mtx.unlock();
-    }
-    else
-    {
-        while (wait_finish == false);
-    }
+    while(num_room_1 != get_expected_thread_count());
+    num_thread = num_room_1;
 
-    thread_inside_count--;
-    return saved_thread_inside_count.load();
+    ++num_room_2;
+    while(num_room_2 != num_thread);
+
+    --num_room_1;
+    while(num_room_1 != 0);
+
+    --num_room_2;
+    while(num_room_2 != 0);
+
+    return num_thread;
 }
 
 void thread_func()
