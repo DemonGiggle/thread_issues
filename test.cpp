@@ -30,7 +30,7 @@ int wait_for_all_entering_ep()
     bool first_thread_expect = false;
     if (std::atomic_compare_exchange_strong(&first_thread, &first_thread_expect, true))
     { 
-        while (thread_inside_count != g_thread_count)
+        while (thread_inside_count != get_expected_thread_count())
         {  
             // Well, furiosly infinit looping until all the threads runnin in the 
             // kernel are trapped here
