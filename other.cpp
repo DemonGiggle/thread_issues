@@ -2,6 +2,8 @@
 
 #include "other.h"
 #include <thread>
+#include <time.h>
+#include <stdlib.h>
 
 std::thread* g_managed = NULL;
 bool g_finish = false;
@@ -14,7 +16,17 @@ int get_expected_thread_count()
 
 void notify_each_run()
 {
-    expected_thread_count = MAX_THREAD_COUNT * 2;
+    // sometimes, we just random to set the thread count to the expected value
+    // to increase the possibility to somewhat racing condition
+    if (random() % 88 > 44)
+    {
+        expected_thread_count = MAX_THREAD_COUNT * 2;
+    }
+    else
+    {
+        expected_thread_count = MAX_THREAD_COUNT;
+    }
+
 }
 
 void manage_func()
@@ -32,6 +44,7 @@ void manage_func()
 
 void initialize()
 {
+    srand(time(NULL));
     g_finish = false;
     g_managed = new std::thread(manage_func);
 }
