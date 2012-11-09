@@ -21,22 +21,29 @@ int wait_for_all_entering_ep()
     static std::atomic<int> saved_thread_inside_count;
 
     static std::mutex mtx;
+    static std::atomic<int> count(0);
 
+    count++;
+    while(count!= g_thread_count)
+        ;
+    
     wait_finish = false;
-    thread_inside_count++;
     if (mtx.try_lock())
     {  
+        thread_inside_count++;
         while (thread_inside_count != g_thread_count)
         {  
             // Well, furiosly infinit looping until all the threads runnin in the 
             // kernel are trapped here
         }
+        count =0;
         saved_thread_inside_count = thread_inside_count.load();
         wait_finish = true;
         mtx.unlock();
     }
     else
     {
+        thread_inside_count++;
         while (wait_finish == false);
     }
 
