@@ -6,8 +6,10 @@
 #include <algorithm>
 #include <cassert>
 
+#include "other.h"
+
 // Well, do not set the thread count exceeds your physical core number
-const int g_thread_count = 2;
+const int g_thread_count = MAX_THREAD_COUNT;
 const int g_hammer_count = 1000000;
 
 /**
@@ -31,7 +33,7 @@ int wait_for_all_entering_ep()
     if (mtx.try_lock())
     {  
         thread_inside_count++;
-        while (thread_inside_count != g_thread_count)
+        while (thread_inside_count != get_expected_thread_count())
         {  
             // Well, furiosly infinit looping until all the threads runnin in the 
             // kernel are trapped here
@@ -56,6 +58,8 @@ void thread_func()
     int hammer_count = g_hammer_count;
     while (hammer_count--)
     {
+        notify_each_run();
+
         int t_inside = wait_for_all_entering_ep();
         assert(t_inside == g_thread_count && "Well, you code could not suffer hammering!");
         if (hammer_count % 10000 == 0)
@@ -67,6 +71,8 @@ int main()
 {
     std::vector<std::thread*> threads;
 
+    initialize();
+
     for (int i = 0; i < g_thread_count; i++)
     {
         threads.push_back(new std::thread(thread_func));
@@ -76,6 +82,8 @@ int main()
             if (t->joinable())
                 t->join();
     });
+
+    uninitialize();
 
     std::cout << "Finished" << std::endl;
     return 0;
