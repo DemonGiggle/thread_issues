@@ -18,7 +18,6 @@ const int g_hammer_count = 1000000;
  */
 int wait_for_all_entering_ep()
 {
-    static std::atomic<bool> is_ready(false);
     static std::atomic<int>  in_count(0);
     static std::atomic<int>  out_count(0);
 
@@ -31,17 +30,14 @@ int wait_for_all_entering_ep()
         while(in_count != get_expected_thread_count());
 
         result_count = in_count;
-
-        is_ready = true;
     }
     else
     {
-        while(!is_ready);
+        while(out_count == 0);
     }
 
     if(in_count == ++out_count)
     {
-        is_ready  = false;
         in_count  = 0;
         out_count = 0;
     }
