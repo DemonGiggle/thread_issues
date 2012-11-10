@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <cassert>
+#include <condition_variable>
 
 #include "other.h"
 
@@ -17,33 +18,34 @@ const int g_hammer_count = 1000000;
  * how many had been here
  */
 int wait_for_all_entering_ep()
-{  
-    static std::atomic<bool> wait_finish;
-    static std::atomic<int> thread_inside_count;
-    static std::atomic<int> saved_thread_inside_count;
+{
+    static std::atomic<int> in_count(0);
+    static bool is_door1_open( true );
+    static bool is_door2_open( false );
 
-    static std::mutex mtx;
+    static int result = 0;
 
-    wait_finish = false;
-    thread_inside_count++;
-    if (mtx.try_lock())
-    {  
-        while (thread_inside_count != get_expected_thread_count())
-        {  
-            // Well, furiosly infinit looping until all the threads runnin in the 
-            // kernel are trapped here
-        }
-        saved_thread_inside_count = thread_inside_count.load();
-        wait_finish = true;
-        mtx.unlock();
+    while ( !is_door1_open );
+
+    if ( in_count++ == 0 )
+    {
+        while ( in_count != get_expected_thread_count() );
+        result = in_count.load();
+        is_door1_open = false;
+        is_door2_open = true;
     }
     else
     {
-        while (wait_finish == false);
+        while ( !is_door2_open );
     }
 
-    thread_inside_count--;
-    return saved_thread_inside_count.load();
+    if ( --in_count == 0 )
+    {
+        is_door2_open = false;
+        is_door1_open = true;
+    }
+
+    return result;
 }
 
 void thread_func()
