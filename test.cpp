@@ -1,3 +1,5 @@
+#define _GLIBCXX_USE_SCHED_YIELD
+
 #include <iostream>
 #include <atomic>
 #include <mutex>
@@ -40,7 +42,8 @@ int wait_for_all_entering_ep()
     // second door
     if ( in_count++ == 0 )
     {
-        while ( in_count != get_expected_thread_count() );
+        while ( in_count != get_expected_thread_count() )
+            std::this_thread::yield();
         result = in_count.load();
         is_door1_open = false;
         is_door2_open = true;
