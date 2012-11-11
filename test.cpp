@@ -1,3 +1,5 @@
+#define _GLIBCXX_USE_SCHED_YIELD
+
 #include <iostream>
 #include <atomic>
 #include <mutex>
@@ -5,6 +7,7 @@
 #include <vector>
 #include <algorithm>
 #include <cassert>
+#include <condition_variable>
 
 #include "other.h"
 
@@ -18,32 +21,51 @@ const int g_hammer_count = 1000000;
  */
 int wait_for_all_entering_ep()
 {  
-    static std::atomic<bool> wait_finish;
-    static std::atomic<int> thread_inside_count;
-    static std::atomic<int> saved_thread_inside_count;
+    static std::atomic<int> in_count(0);
+    static std::mutex m1;
+    static std::mutex m2;
+    static std::condition_variable door1_cv;
+    static std::condition_variable door2_cv;
+    static bool is_door1_open( true );
+    static bool is_door2_open( false );
 
-    static std::mutex mtx;
+    static int result = 0;
 
-    wait_finish = false;
-    thread_inside_count++;
-    if (mtx.try_lock())
-    {  
-        while (thread_inside_count != get_expected_thread_count())
-        {  
-            // Well, furiosly infinit looping until all the threads runnin in the 
-            // kernel are trapped here
-        }
-        saved_thread_inside_count = thread_inside_count.load();
-        wait_finish = true;
-        mtx.unlock();
+    // first door
+    if ( !is_door1_open )
+    {
+        std::unique_lock<std::mutex> lock1(m1);
+        door1_cv.wait( lock1, [](){ return is_door1_open; } );
+        lock1.unlock();
+    }
+
+    // second door
+    if ( in_count++ == 0 )
+    {
+        while ( in_count != get_expected_thread_count() )
+            std::this_thread::yield();
+        result = in_count.load();
+        is_door1_open = false;
+        is_door2_open = true;
+        std::lock_guard<std::mutex> lk(m2);
+        door2_cv.notify_all();
     }
     else
     {
-        while (wait_finish == false);
+        std::unique_lock<std::mutex> lock2(m2);
+        door2_cv.wait( lock2, [](){ return is_door2_open; } );
+        lock2.unlock();
     }
 
-    thread_inside_count--;
-    return saved_thread_inside_count.load();
+    if ( --in_count == 0 )
+    {
+        is_door2_open = false;
+        is_door1_open = true;
+        std::lock_guard<std::mutex> lk(m1);
+        door1_cv.notify_all();
+    }
+
+    return result;
 }
 
 void thread_func()
